@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#183a37">
+  <meta name="description" content="Relivn — práticas de atenção, autoconsciência e autorregulação.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Relivn">
+  <title>Relivn — Meditação & Estudos</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%23183a37%22/><path d=%22M32 47C18 39 17 24 32 14c15 10 14 25 0 33Z%22 fill=%22none%22 stroke=%22%23d9a84e%22 stroke-width=%223%22/><path d=%22M32 47V20%22 stroke=%22%23d9a84e%22 stroke-width=%223%22/></svg>">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#inicio" aria-label="Relivn, início">
+        <span class="brand-mark"><span></span></span>
+        <span>relivn<small>meditação & estudos</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <a href="#inicio" data-route="inicio"><span>⌂</span> Hoje</a>
+        <a href="#jornada" data-route="jornada"><span>◫</span> Minha jornada</a>
+        <a href="#leituras" data-route="leituras"><span>≡</span> Leituras</a>
+        <a href="#favoritos" data-route="favoritos"><span>♡</span> Favoritos</a>
+      </nav>
+      <button class="install-button" id="installButton" hidden><span>↓</span> Instalar aplicativo</button>
+      <div class="sidebar-progress">
+        <div class="eyebrow">Sua jornada</div>
+        <div class="progress-label"><strong id="sideProgressText">0%</strong><span>concluído</span></div>
+        <div class="progress-track"><i id="sideProgressBar"></i></div>
+        <p id="sideProgressDetail">Comece pela primeira prática.</p>
+      </div>
+      <p class="sidebar-note">Regularidade é mais importante que intensidade.</p>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="menuButton" aria-label="Abrir menu">☰</button>
+        <div class="topbar-title" id="topbarTitle">Hoje</div>
+        <div class="top-actions">
+          <button class="icon-button" id="searchButton" aria-label="Buscar">⌕</button>
+          <div class="avatar" title="Daniel">DA</div>
+        </div>
+      </header>
+      <div id="app" tabindex="-1"></div>
+    </main>
+  </div>
+
+  <section class="player" id="player" aria-label="Reprodutor" hidden>
+    <div class="player-info">
+      <div class="player-art"><span></span></div>
+      <div><strong id="playerTitle">Prática</strong><small id="playerModule">Relivn</small></div>
+    </div>
+    <div class="player-center">
+      <div class="player-controls">
+        <button id="prevButton" aria-label="Anterior">‹</button>
+        <button class="play-main" id="playButton" aria-label="Reproduzir">▶</button>
+        <button id="nextButton" aria-label="Próxima">›</button>
+      </div>
+      <div class="timeline"><span id="currentTime">0:00</span><input id="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Posição do áudio"><span id="duration">0:00</span></div>
+    </div>
+    <div class="player-options">
+      <button class="player-tool" id="offlineButton" aria-label="Baixar prática para ouvir offline" title="Disponibilizar offline">⇩</button>
+      <button class="player-tool" id="wakeButton" aria-label="Manter tela ligada" title="Manter tela ligada">☼</button>
+      <button id="speedButton" aria-label="Velocidade">1×</button>
+      <span>◖</span><input id="volume" type="range" min="0" max="1" value="0.9" step="0.05" aria-label="Volume">
+    </div>
+    <audio id="audio" preload="metadata"></audio>
+  </section>
+
+  <div class="modal" id="readerModal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <article class="reader-panel" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+      <header class="reader-header">
+        <div><span class="eyebrow" id="readerModule">LEITURA</span><h1 id="readerTitle"></h1></div>
+        <button class="icon-button" data-close-modal aria-label="Fechar leitura">×</button>
+      </header>
+      <div class="reader-progress"><i id="readerProgress"></i></div>
+      <div class="reader-body" id="readerBody"></div>
+      <footer class="reader-footer"><button class="button secondary" data-close-modal>Voltar</button><button class="button primary" id="completeReading">Marcar como lida</button></footer>
+    </article>
+  </div>
+
+  <div class="search-overlay" id="searchOverlay" hidden>
+    <div class="search-box">
+      <button class="icon-button" id="closeSearch" aria-label="Fechar">×</button>
+      <label for="globalSearch">Buscar práticas e estudos</label>
+      <input id="globalSearch" type="search" placeholder="Digite respiração, atenção, emoções…" autocomplete="off">
+      <div id="searchResults" class="search-results"></div>
+    </div>
+  </div>
+
+  <script src="app-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
