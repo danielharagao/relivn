@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const data = window.RELIVN_DATA;
+  const transcripts = window.RELIVN_TRANSCRIPTS || {};
   if (!data) throw new Error('Dados do aplicativo não carregados. Execute build_content.py.');
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -10,6 +11,7 @@
     favorites: new Set(JSON.parse(localStorage.getItem('relivn-favorites') || '[]')),
     currentAudio: null,
     currentReading: null,
+    currentTranscript: null,
     speedIndex: 0,
     wakeLock: null,
     installPrompt: null,
@@ -36,6 +38,7 @@
   function moduleById(id) { return data.modules.find(m => m.id === id); }
   function readingById(id) { return data.readings.find(r => r.id === id); }
   function practiceById(id) { return data.modules.flatMap(m => m.practices).find(p => p.id === id); }
+  function transcriptFor(practice) { return practice?.audio ? transcripts[practice.audio] : null; }
   function readingMinutes(r) { return Math.max(2, Math.ceil(r.wordCount / 210)); }
   function formatTime(seconds) {
     if (!Number.isFinite(seconds)) return '0:00';
@@ -123,7 +126,7 @@
       <div class="lesson-index">${done ? '✓' : String(index + 1).padStart(2,'0')}</div>
       <div><h3>${escapeHTML(p.title)}</h3><p>${escapeHTML(p.label)}${p.audio ? ` · ${formatTime(p.duration)}` : ' · edição final não localizada'}</p></div>
       <div class="lesson-actions">
-        ${p.audio ? `<button class="round-button favorite ${fav ? 'on' : ''}" data-favorite="practice:${p.id}" aria-label="Favoritar">♡</button><button class="round-button" data-play="${p.id}" aria-label="Ouvir">▶</button>` : '<span class="status-pill">INDISPONÍVEL</span>'}
+        ${p.audio ? `<button class="round-button favorite ${fav ? 'on' : ''}" data-favorite="practice:${p.id}" aria-label="Favoritar">♡</button>${transcriptFor(p) ? `<button class="round-button" data-transcript="${p.id}" aria-label="Ler transcrição">≡</button>` : ''}<button class="round-button" data-play="${p.id}" aria-label="Ouvir">▶</button>` : '<span class="status-pill">INDISPONÍVEL</span>'}
       </div>
     </article>`;
   }
@@ -170,6 +173,7 @@
     $('#playerModule').textContent = `${moduleById(practice.module)?.title || 'Bônus'} · ${practice.label}`;
     updateMediaSession(practice);
     updateOfflineButton(practice);
+    updateTranscriptButton(practice);
     audio.play().catch(() => {});
     updatePlayerButton();
   }
@@ -255,16 +259,66 @@
     $('.reader-panel').scrollTop = 0;
   }
   function closeReading() { $('#readerModal').hidden = true; document.body.style.overflow = ''; state.currentReading = null; }
+  function updateTranscriptButton(practice = state.currentAudio) {
+    const button = $('#transcriptButton');
+    const available = Boolean(transcriptFor(practice));
+    button.disabled = !available;
+    button.title = available ? 'Abrir transcrição com tempos' : 'Transcrição indisponível';
+  }
+  function openTranscript(id = state.currentAudio?.id) {
+    const practice = practiceById(id);
+    const transcript = transcriptFor(practice);
+    if (!practice || !transcript) return;
+    state.currentTranscript = { practice, transcript };
+    $('#transcriptTitle').textContent = practice.title;
+    $('#transcriptModule').textContent = `${moduleById(practice.module)?.title || 'Meditação'} · TRANSCRIÇÃO LITERAL`;
+    $('#transcriptBody').innerHTML = transcript.segments.map((segment, index) => `
+      <button class="transcript-segment" data-seek-time="${segment.start}" data-segment-index="${index}">
+        <span class="transcript-time">${escapeHTML(segment.startLabel)} → ${escapeHTML(segment.endLabel)}</span>
+        <span class="transcript-text">${escapeHTML(segment.text)}</span>
+      </button>`).join('');
+    $('#transcriptModal').hidden = false;
+    document.body.style.overflow = 'hidden';
+    updateActiveTranscriptSegment();
+    $('.transcript-panel').scrollTop = 0;
+  }
+  function closeTranscript() {
+    $('#transcriptModal').hidden = true;
+    document.body.style.overflow = '';
+    state.currentTranscript = null;
+  }
+  function updateActiveTranscriptSegment() {
+    if (!state.currentTranscript || $('#transcriptModal').hidden || state.currentAudio?.id !== state.currentTranscript.practice.id) return;
+    const segments = state.currentTranscript.transcript.segments;
+    let active = -1;
+    for (let i = 0; i < segments.length; i += 1) {
+      if (audio.currentTime >= segments[i].start && audio.currentTime < segments[i].end) { active = i; break; }
+    }
+    $$('.transcript-segment').forEach((element, index) => element.classList.toggle('active', index === active));
+  }
   function toggleFavorite(key) { state.favorites.has(key) ? state.favorites.delete(key) : state.favorites.add(key); save(); render(); }
 
   document.addEventListener('click', e => {
     const play = e.target.closest('[data-play]'); if (play) return playPractice(play.dataset.play);
     const read = e.target.closest('[data-read]'); if (read) return openReading(read.dataset.read);
+    const transcript = e.target.closest('[data-transcript]'); if (transcript) return openTranscript(transcript.dataset.transcript);
     const fav = e.target.closest('[data-favorite]'); if (fav) return toggleFavorite(fav.dataset.favorite);
     const go = e.target.closest('[data-go]'); if (go) { location.hash = go.dataset.go; return; }
     const module = e.target.closest('[data-module]'); if (module) { location.hash = `jornada/${module.dataset.module}`; return; }
     const filter = e.target.closest('[data-reading-filter]'); if (filter) return renderReadings(filter.dataset.readingFilter);
     if (e.target.closest('[data-close-modal]')) closeReading();
+    if (e.target.closest('[data-close-transcript]')) closeTranscript();
+    const seek = e.target.closest('[data-seek-time]');
+    if (seek && state.currentTranscript) {
+      const practice = state.currentTranscript.practice;
+      const seekTime = Number(seek.dataset.seekTime);
+      const applySeek = () => { audio.currentTime = seekTime; audio.play().catch(() => {}); updateActiveTranscriptSegment(); };
+      if (state.currentAudio?.id !== practice.id) {
+        playPractice(practice.id);
+        if (audio.readyState >= 1) applySeek();
+        else audio.addEventListener('loadedmetadata', applySeek, { once: true });
+      } else applySeek();
+    }
   });
   window.addEventListener('hashchange', render);
   $('#menuButton').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
@@ -273,6 +327,7 @@
   $('#prevButton').addEventListener('click', () => adjacentTrack(-1));
   $('#nextButton').addEventListener('click', () => adjacentTrack(1));
   $('#offlineButton').addEventListener('click', downloadCurrentAudio);
+  $('#transcriptButton').addEventListener('click', () => openTranscript());
   $('#wakeButton').addEventListener('click', async () => {
     const enabled = localStorage.getItem('relivn-wake-enabled') === 'true';
     localStorage.setItem('relivn-wake-enabled', String(!enabled));
@@ -299,6 +354,7 @@
     $('#currentTime').textContent = formatTime(audio.currentTime);
     $('#seek').value = audio.duration ? audio.currentTime / audio.duration * 100 : 0;
     saveAudioPosition();
+    updateActiveTranscriptSegment();
     if ('mediaSession' in navigator && audio.duration && navigator.mediaSession.setPositionState) {
       try { navigator.mediaSession.setPositionState({ duration: audio.duration, playbackRate: audio.playbackRate, position: Math.min(audio.currentTime, audio.duration) }); } catch { /* metadados ainda carregando */ }
     }
@@ -327,7 +383,7 @@
     $('#searchResults').innerHTML = [...p.map(x => `<button class="search-result" data-search-play="${x.id}"><span>${escapeHTML(x.title)}</span><small>Prática · ${formatTime(x.duration)}</small></button>`), ...r.map(x => `<button class="search-result" data-search-read="${x.id}"><span>${escapeHTML(x.title)}</span><small>Leitura · ${readingMinutes(x)} min</small></button>`)].join('') || '<p>Nenhum resultado encontrado.</p>';
   });
   $('#searchResults').addEventListener('click', e => { const p = e.target.closest('[data-search-play]'), r = e.target.closest('[data-search-read]'); if (p) { closeSearch(); playPractice(p.dataset.searchPlay); } if (r) { closeSearch(); openReading(r.dataset.searchRead); } });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!searchOverlay.hidden) closeSearch(); else if (!$('#readerModal').hidden) closeReading(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!searchOverlay.hidden) closeSearch(); else if (!$('#transcriptModal').hidden) closeTranscript(); else if (!$('#readerModal').hidden) closeReading(); } });
 
   if ('mediaSession' in navigator) {
     const actions = {
@@ -366,5 +422,5 @@
     navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Modo offline indisponível:', error));
   }
 
-  updateWakeButton(); updateProgress(); render();
+  updateWakeButton(); updateTranscriptButton(); updateProgress(); render();
 })();

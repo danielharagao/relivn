@@ -68,6 +68,7 @@
       <div class="timeline"><span id="currentTime">0:00</span><input id="seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Posição do áudio"><span id="duration">0:00</span></div>
     </div>
     <div class="player-options">
+      <button class="player-tool" id="transcriptButton" aria-label="Abrir transcrição" title="Transcrição com tempos">≡</button>
       <button class="player-tool" id="offlineButton" aria-label="Baixar prática para ouvir offline" title="Disponibilizar offline">⇩</button>
       <button class="player-tool" id="wakeButton" aria-label="Manter tela ligada" title="Manter tela ligada">☼</button>
       <button id="speedButton" aria-label="Velocidade">1×</button>
@@ -89,6 +90,19 @@
     </article>
   </div>
 
+  <div class="modal" id="transcriptModal" hidden>
+    <div class="modal-backdrop" data-close-transcript></div>
+    <article class="reader-panel transcript-panel" role="dialog" aria-modal="true" aria-labelledby="transcriptTitle">
+      <header class="reader-header">
+        <div><span class="eyebrow" id="transcriptModule">TRANSCRIÇÃO LITERAL</span><h1 id="transcriptTitle"></h1></div>
+        <button class="icon-button" data-close-transcript aria-label="Fechar transcrição">×</button>
+      </header>
+      <div class="transcript-note">Toque em uma fala para ouvir a partir daquele ponto. Os tempos indicam o início e o fim de cada segmento.</div>
+      <div class="transcript-body" id="transcriptBody"></div>
+      <footer class="reader-footer"><button class="button secondary" data-close-transcript>Fechar</button></footer>
+    </article>
+  </div>
+
   <div class="search-overlay" id="searchOverlay" hidden>
     <div class="search-box">
       <button class="icon-button" id="closeSearch" aria-label="Fechar">×</button>
@@ -99,6 +113,7 @@
   </div>
 
   <script src="app-data.js"></script>
+  <script src="transcriptions.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
