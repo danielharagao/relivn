@@ -19,7 +19,9 @@
   };
   const app = $('#app');
   const audio = $('#audio');
-  const availablePractices = data.modules.flatMap(m => m.practices).filter(p => p.audio);
+  const modulePractices = data.modules.flatMap(m => m.practices).filter(p => p.audio);
+  const bonusPractice = data.bonus?.audio ? { ...data.bonus, module: 'bonus', label: 'Prática bônus' } : null;
+  const availablePractices = bonusPractice ? [...modulePractices, bonusPractice] : modulePractices;
   const allTrackable = [...availablePractices.map(p => `practice:${p.id}`), ...data.readings.map(r => `reading:${r.id}`)];
 
   function save() {
@@ -37,7 +39,7 @@
   function escapeHTML(value) { const d = document.createElement('div'); d.textContent = value; return d.innerHTML; }
   function moduleById(id) { return data.modules.find(m => m.id === id); }
   function readingById(id) { return data.readings.find(r => r.id === id); }
-  function practiceById(id) { return data.modules.flatMap(m => m.practices).find(p => p.id === id); }
+  function practiceById(id) { return availablePractices.find(p => p.id === id); }
   function transcriptFor(practice) { return practice?.audio ? transcripts[practice.audio] : null; }
   function readingMinutes(r) { return Math.max(2, Math.ceil(r.wordCount / 210)); }
   function formatTime(seconds) {
@@ -110,7 +112,7 @@
 
   function renderJourney(focusModule) {
     app.innerHTML = `<div class="page-title"><div><span class="eyebrow">PROGRAMA RELIVN</span><h1>Sua jornada</h1><p>Pratique de segunda a sexta. Use o fim de semana para recuperar uma prática.</p></div></div>
-      ${data.modules.map(m => renderModule(m)).join('')}`;
+      ${data.modules.map(m => renderModule(m)).join('')}${bonusPractice ? renderBonus() : ''}`;
     if (focusModule) setTimeout(() => document.getElementById(`module-${focusModule}`)?.scrollIntoView(), 0);
   }
   function renderModule(m) {
@@ -118,6 +120,12 @@
     return `<section class="module-section" id="module-${m.id}">
       <div class="module-banner"><div><span class="eyebrow" style="color:#e3ba72">${escapeHTML(m.kicker)}</span><h2>${escapeHTML(m.title)}</h2><p>${escapeHTML(m.description)}</p></div><div><strong>${s.pct}%</strong><p>${s.done}/${s.total} disponíveis</p></div></div>
       <div class="lesson-list">${m.practices.map((p, i) => lessonRow(p, i)).join('')}</div>
+    </section>`;
+  }
+  function renderBonus() {
+    return `<section class="module-section" id="module-bonus">
+      <div class="module-banner"><div><span class="eyebrow" style="color:#e3ba72">PRÁTICA BÔNUS</span><h2>Campo Cósmico</h2><p>Uma meditação complementar para encerrar a jornada.</p></div></div>
+      <div class="lesson-list">${lessonRow(bonusPractice, 0)}</div>
     </section>`;
   }
   function lessonRow(p, index) {
