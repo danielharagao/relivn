@@ -1,7 +1,8 @@
-const SHELL_CACHE = 'relivn-shell-v3';
+const SHELL_CACHE = 'relivn-shell-v4';
 const AUDIO_CACHE = 'relivn-audio-v1';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './app-data.js', './transcriptions.js',
+  './relivn-config.js', './phase1-core.js', './phase1-data.js', './phase1.js',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'
 ];
 
