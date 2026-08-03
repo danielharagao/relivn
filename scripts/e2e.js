@@ -13,7 +13,8 @@ const puppeteer = require('puppeteer-core');
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   try {
-    await page.goto(pathToFileURL(path.join(__dirname, '..', 'index.html')).href, { waitUntil: 'load' });
+    const target = process.env.RELIVN_BASE_URL || pathToFileURL(path.join(__dirname, '..', 'index.html')).href;
+    await page.goto(target, { waitUntil: 'load' });
     console.log('E2E: landing carregada');
     await page.waitForSelector('[data-start-diagnostic]');
     const headline = await page.$eval('.marketing-hero h1', element => element.textContent);
