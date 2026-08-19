@@ -43,10 +43,12 @@ test('reflexão local usa apenas texto sanitizado', () => {
 test('exportação exclui campos internos desconhecidos', () => {
   const output = JSON.parse(core.exportUserData({
     profile: { name: 'Daniel' },
+    entitlements: ['attention'],
     reflections: [{ day: 1 }],
     secret: 'não exportar'
   }));
   assert.equal(output.product, 'Relivn');
   assert.equal(output.secret, undefined);
+  assert.deepEqual(output.entitlements, ['attention']);
   assert.equal(output.reflections.length, 1);
 });

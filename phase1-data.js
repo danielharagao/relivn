@@ -1,6 +1,35 @@
 window.RELIVN_PHASE1 = {
   version: '0.1.0-alpha',
   promise: 'Recupere clareza e escolha seu próximo passo em um mundo acelerado pela IA.',
+  modules: [
+    {
+      id: 'attention',
+      number: 1,
+      title: 'Atenção',
+      description: 'Treine o foco, reconheça a distração e retorne ao que você escolheu.',
+      priceCents: 2990,
+      days: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      status: 'available'
+    },
+    {
+      id: 'self-awareness',
+      number: 2,
+      title: 'Autoconsciência',
+      description: 'Diferencie fatos, emoções, narrativas e pressões externas.',
+      priceCents: 2990,
+      days: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      status: 'available'
+    },
+    {
+      id: 'self-regulation',
+      number: 3,
+      title: 'Autorregulação',
+      description: 'Crie espaço entre impulso e escolha e transforme clareza em ação.',
+      priceCents: 2990,
+      days: [21],
+      status: 'preparing'
+    }
+  ],
   questions: [
     { id: 'q1', dimension: 'attention', text: 'Minha atenção muda de direção sempre que aparece uma nova ferramenta, tendência ou possibilidade.' },
     { id: 'q2', dimension: 'attention', text: 'Termino o dia tendo consumido muita informação e avançado pouco no que escolhi fazer.' },

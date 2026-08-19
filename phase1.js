@@ -16,6 +16,7 @@
     diagnostic: null,
     reflections: [],
     preferences: { reminder: '' },
+    entitlements: [],
     access: false,
     events: []
   };
@@ -166,7 +167,7 @@
             <span>Próximo passo recomendado</span>
             <strong>Começar por atenção e retorno, antes de tentar encontrar uma resposta definitiva.</strong>
           </div>
-          <button class="button primary large" data-activate-access>${config.checkoutUrl ? 'Entrar na jornada fundadora' : 'Explorar a jornada alpha'} →</button>
+          <button class="button primary large" data-activate-access>Conhecer os módulos →</button>
           <small>Ferramenta de desenvolvimento pessoal; não constitui diagnóstico clínico.</small>
         </section>
       </main>`;
@@ -191,15 +192,10 @@
   }
 
   function activateAccess() {
-    if (config.checkoutUrl) {
-      track('checkout_started');
-      location.href = config.checkoutUrl;
-      return;
-    }
     state.access = true;
     persist();
-    track('alpha_access_activated');
-    location.hash = 'inicio';
+    track('module_store_entered');
+    location.hash = 'modulos';
     showProduct();
   }
 
@@ -208,6 +204,7 @@
     if (!nav || $('[data-route="programa"]', nav)) return;
     nav.innerHTML = `
       <a href="#inicio" data-route="inicio"><span>⌂</span> Hoje</a>
+      <a href="#modulos" data-route="modulos"><span>▦</span> Módulos</a>
       <a href="#programa" data-route="programa"><span>◫</span> Jornada 21 dias</a>
       <a href="#diario" data-route="diario"><span>✎</span> Diário</a>
       <a href="#leituras" data-route="leituras"><span>≡</span> Leituras</a>
@@ -227,18 +224,84 @@
     if (subtitle) subtitle.textContent = 'clareza em tempos de incerteza';
   }
 
+  function ownedModules() {
+    return new Set(state.entitlements || []);
+  }
+
+  function moduleForDay(dayNumber) {
+    return phase.modules.find(module => module.days.includes(Number(dayNumber)));
+  }
+
+  function isDayAvailable(dayNumber) {
+    const module = moduleForDay(dayNumber);
+    if (!module || !ownedModules().has(module.id)) return false;
+    const index = module.days.indexOf(Number(dayNumber));
+    if (index <= 0) return true;
+    return state.reflections.some(item => item.day === module.days[index - 1]);
+  }
+
+  function nextAccessibleDay() {
+    for (const module of phase.modules) {
+      if (!ownedModules().has(module.id)) continue;
+      const pending = module.days.find(day => !state.reflections.some(item => item.day === day));
+      if (pending) return pending;
+    }
+    return null;
+  }
+
+  function formatPrice(cents) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+  }
+
+  function renderModules() {
+    const owned = ownedModules();
+    app.innerHTML = `<div class="page-title"><div><span class="eyebrow">COMPRE NO SEU RITMO</span><h1>Módulos Relivn</h1><p>Cada módulo é independente. Comece por Atenção e avance quando fizer sentido para você.</p></div></div>
+      <div class="commerce-grid">${phase.modules.map(module => {
+        const isOwned = owned.has(module.id);
+        const complete = module.days.filter(day => state.reflections.some(item => item.day === day)).length;
+        const preparing = module.status !== 'available';
+        return `<article class="commerce-card ${isOwned ? 'owned' : ''} ${preparing ? 'preparing' : ''}">
+          <div class="commerce-top"><span class="module-number">0${module.number}</span><span class="status-pill">${isOwned ? 'ADQUIRIDO' : preparing ? 'EM PREPARAÇÃO' : 'DISPONÍVEL'}</span></div>
+          <h2>${escapeHTML(module.title)}</h2>
+          <p>${escapeHTML(module.description)}</p>
+          <ul><li>${module.days.length} ${module.days.length === 1 ? 'prática guiada' : 'práticas guiadas'}</li><li>Reflexões e pequenas ações</li><li>Acesso individual ao módulo</li></ul>
+          <div class="commerce-price"><strong>${formatPrice(module.priceCents)}</strong><span>pagamento único</span></div>
+          ${isOwned
+            ? `<button class="button primary" data-continue-module="${module.id}">Continuar módulo (${complete}/${module.days.length}) →</button>`
+            : preparing
+              ? '<button class="button secondary" disabled>Conteúdo em preparação</button>'
+              : `<button class="button primary" data-buy-module="${module.id}">Comprar ${escapeHTML(module.title)} →</button>`}
+        </article>`;
+      }).join('')}</div>
+      ${config.testPurchases ? '<p class="test-purchase-note">Homologação: os botões simulam a confirmação de compra. Nenhuma cobrança será realizada.</p>' : ''}`;
+    updateTopbar('Módulos');
+  }
+
   function currentProgress() {
-    return core.progressFor(state.reflections, phase.days.length);
+    const accessible = phase.modules.filter(module => ownedModules().has(module.id)).flatMap(module => module.days);
+    const completed = accessible.filter(day => state.reflections.some(item => item.day === day)).length;
+    return {
+      completed,
+      total: accessible.length,
+      percentage: accessible.length ? Math.round((completed / accessible.length) * 100) : 0,
+      nextDay: nextAccessibleDay()
+    };
   }
 
   function renderToday() {
     const progress = currentProgress();
-    const day = phase.days[progress.nextDay - 1] || phase.days[phase.days.length - 1];
+    if (!progress.nextDay) {
+      if (!progress.total) return renderModules();
+      app.innerHTML = `<div class="empty-state"><strong>Você concluiu os módulos adquiridos</strong><span>Revise seu diário ou conheça o próximo módulo.</span><br><button class="button primary" data-go-modules>Ver módulos →</button></div>`;
+      updateTopbar('Hoje');
+      return;
+    }
+    const day = phase.days[progress.nextDay - 1];
     const previous = state.reflections.find(item => item.day === day.day);
     app.innerHTML = `
       <section class="today-header">
-        <div><span class="eyebrow">DIA ${day.day} DE 21 · ${escapeHTML(day.cycle)}</span><h1>${escapeHTML(day.title)}</h1><p>${escapeHTML(day.prompt)}</p></div>
-        <div class="today-progress"><strong>${progress.percentage}%</strong><span>da jornada</span></div>
+        <div><span class="eyebrow">${escapeHTML(moduleForDay(day.day).title)} · DIA ${moduleForDay(day.day).days.indexOf(day.day) + 1} DE ${moduleForDay(day.day).days.length}</span><h1>${escapeHTML(day.title)}</h1><p>${escapeHTML(day.prompt)}</p></div>
+        <div class="today-progress"><strong>${progress.percentage}%</strong><span>dos módulos adquiridos</span></div>
       </section>
       <section class="daily-flow">
         <article><span>01</span><div><small>CHEGUE</small><h2>Perceba como você está</h2><p>Não é preciso mudar seu estado antes de começar.</p></div></article>
@@ -252,14 +315,16 @@
 
   function renderProgram() {
     const progress = currentProgress();
-    app.innerHTML = `<div class="page-title"><div><span class="eyebrow">PERCEBER · DISTINGUIR · ESCOLHER · AGIR · REVISAR</span><h1>Jornada de 21 dias</h1><p>Continue sem culpa. Retomar também faz parte da prática.</p></div><strong>${progress.completed}/21</strong></div>
+    app.innerHTML = `<div class="page-title"><div><span class="eyebrow">PERCEBER · DISTINGUIR · ESCOLHER · AGIR · REVISAR</span><h1>Sua jornada</h1><p>Os módulos adquiridos são liberados separadamente.</p></div><strong>${progress.completed}/${progress.total}</strong></div>
       <div class="phase-day-list">${phase.days.map(day => {
         const reflection = state.reflections.find(item => item.day === day.day);
-        const available = day.day <= progress.nextDay;
+        const module = moduleForDay(day.day);
+        const owned = ownedModules().has(module.id);
+        const available = isDayAvailable(day.day);
         return `<article class="phase-day ${reflection ? 'completed' : ''} ${available ? '' : 'locked'}">
           <span class="phase-day-number">${reflection ? '✓' : String(day.day).padStart(2, '0')}</span>
-          <div><small>${escapeHTML(day.cycle)}</small><h3>${escapeHTML(day.title)}</h3><p>${escapeHTML(day.prompt)}</p></div>
-          <button class="round-button" ${available ? `data-open-day="${day.day}"` : 'disabled'} aria-label="Abrir dia ${day.day}">${available ? '→' : '·'}</button>
+          <div><small>${escapeHTML(module.title)} · ${escapeHTML(day.cycle)}</small><h3>${escapeHTML(day.title)}</h3><p>${escapeHTML(day.prompt)}</p></div>
+          <button class="round-button" ${available ? `data-open-day="${day.day}"` : 'disabled'} aria-label="Abrir dia ${day.day}">${available ? '→' : owned ? '·' : '🔒'}</button>
         </article>`;
       }).join('')}</div>`;
     updateTopbar('Jornada 21 dias');
@@ -293,6 +358,7 @@
     const route = location.hash.slice(1).split('/')[0] || 'inicio';
     setTimeout(() => {
       if (route === 'inicio') renderToday();
+      else if (route === 'modulos') renderModules();
       else if (route === 'programa') renderProgram();
       else if (route === 'diario') renderJournal();
       else if (route === 'conta') renderAccount();
@@ -302,7 +368,7 @@
 
   function openReflection(dayNumber) {
     const day = phase.days[dayNumber - 1];
-    if (!day) return;
+    if (!day || !isDayAvailable(dayNumber)) return;
     const existing = state.reflections.find(item => item.day === dayNumber) || {};
     phaseRoot.hidden = false;
     phaseRoot.innerHTML = `<div class="reflection-overlay"><form class="reflection-panel" id="reflectionForm" data-day="${dayNumber}">
@@ -372,6 +438,25 @@
     location.reload();
   }
 
+  function buyModule(moduleId) {
+    const module = phase.modules.find(item => item.id === moduleId);
+    if (!module || module.status !== 'available') return;
+    const checkoutUrl = config.checkoutUrls?.[moduleId];
+    track('module_checkout_started', { moduleId, priceCents: module.priceCents });
+    if (checkoutUrl) {
+      location.href = checkoutUrl;
+      return;
+    }
+    if (!config.testPurchases) {
+      alert('O checkout deste módulo ainda não foi configurado.');
+      return;
+    }
+    state.entitlements = [...new Set([...(state.entitlements || []), moduleId])];
+    persist();
+    track('module_purchase_simulated', { moduleId });
+    renderModules();
+  }
+
   document.addEventListener('submit', event => {
     if (event.target.id === 'diagnosticForm') { event.preventDefault(); submitDiagnostic(event.target); }
     if (event.target.id === 'reflectionForm') { event.preventDefault(); submitReflection(event.target); }
@@ -392,6 +477,15 @@
     if (event.target.closest('[data-close-reflection]')) { phaseRoot.hidden = true; }
     if (event.target.closest('[data-export-data]')) exportData();
     if (event.target.closest('[data-delete-data]')) deleteData();
+    if (event.target.closest('[data-go-modules]')) location.hash = 'modulos';
+    const buy = event.target.closest('[data-buy-module]');
+    if (buy) buyModule(buy.dataset.buyModule);
+    const continueModule = event.target.closest('[data-continue-module]');
+    if (continueModule) {
+      const module = phase.modules.find(item => item.id === continueModule.dataset.continueModule);
+      const next = module?.days.find(day => !state.reflections.some(item => item.day === day)) || module?.days[0];
+      if (next) location.hash = 'inicio';
+    }
   });
 
   window.addEventListener('hashchange', renderEnhancedRoute);
