@@ -84,6 +84,7 @@
       schemaVersion: 1,
       profile: state.profile || null,
       diagnostic: state.diagnostic || null,
+      entitlements: state.entitlements || [],
       reflections: state.reflections || [],
       preferences: state.preferences || {}
     }, null, 2);

@@ -35,7 +35,24 @@ const puppeteer = require('puppeteer-core');
     if (!result.includes('Atenção')) throw new Error(`Resultado inesperado: ${result}`);
 
     await page.click('[data-activate-access]');
-    console.log('E2E: acesso ativado');
+    console.log('E2E: vitrine de módulos aberta');
+    await page.waitForSelector('.commerce-grid');
+    const price = await page.$eval('.commerce-card .commerce-price strong', element => element.textContent);
+    if (!price.includes('29,90')) throw new Error(`Preço inesperado: ${price}`);
+    const preparing = await page.$eval('.commerce-card.preparing', element => element.textContent);
+    if (!preparing.includes('EM PREPARAÇÃO')) throw new Error('Autorregulação não está sinalizado como em preparação');
+    const testPurchases = await page.evaluate(() => Boolean(window.RELIVN_CONFIG?.testPurchases));
+    if (!testPurchases) {
+      const buyButton = await page.$('[data-buy-module="attention"]');
+      if (!buyButton) throw new Error('Botão de compra do módulo Atenção ausente');
+      if (errors.length) throw new Error(`Erros no navegador:\n${errors.join('\n')}`);
+      console.log('✓ E2E produção: landing → diagnóstico → resultado → vitrine modular');
+      return;
+    }
+    await page.click('[data-buy-module="attention"]');
+    console.log('E2E: compra do módulo Atenção simulada');
+    await page.waitForSelector('[data-continue-module="attention"]');
+    await page.click('[data-continue-module="attention"]');
     await page.waitForSelector('.daily-flow');
     const dayOne = await page.$eval('.today-header .eyebrow', element => element.textContent);
     if (!dayOne.includes('DIA 1')) throw new Error('Dia 1 não foi aberto');
